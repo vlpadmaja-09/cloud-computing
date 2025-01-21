@@ -1,0 +1,69 @@
+import http.server
+import socketserver
+import os
+from urllib.parse import parse_qs
+
+# Configure upload folder
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+PORT = 8000
+
+class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            html_content = '''
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <h2>File Upload</h2>
+                <form action="/upload" method="post" enctype="multipart/form-data">
+                    <input type="file" name="file">
+                    <input type="submit" value="Upload">
+                </form>
+            </body>
+            </html>
+            '''
+            self.wfile.write(html_content.encode('utf-8'))
+        else:
+            self.send_error(404, "File Not Found")
+
+    def do_POST(self):
+        if self.path == '/upload':
+            content_length = int(self.headers['Content-Length'])
+            content_type = self.headers['Content-Type']
+
+            if 'multipart/form-data' in content_type:
+                boundary = content_type.split("boundary=")[-1]
+                boundary = boundary.encode('utf-8')
+                body = self.rfile.read(content_length)
+                parts = body.split(b"--" + boundary)
+
+                for part in parts:
+                    if b"Content-Disposition: form-data;" in part:
+                        headers, content = part.split(b"\r\n\r\n", 1)
+                        content = content.rsplit(b"\r\n", 1)[0]
+
+                        if b"filename=" in headers:
+                            disposition = headers.decode('utf-8')
+                            filename = parse_qs(disposition.split('; ')[2])['filename'][0]
+                            filepath = os.path.join(UPLOAD_FOLDER, filename)
+                            with open(filepath, 'wb') as f:
+                                f.write(content)
+
+                            self.send_response(200)
+                            self.end_headers()
+                            self.wfile.write(f"File successfully uploaded to {filepath}".encode('utf-8'))
+                            return
+
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"Invalid file upload request.")
+
+if _name_ == '_main_':
+    with socketserver.TCPServer(('', PORT), SimpleHTTPRequestHandler) as httpd:
+        print(f"Serving on port {PORT}...")
+        httpd.serve_forever()
