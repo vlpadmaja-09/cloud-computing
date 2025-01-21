@@ -1,0 +1,29 @@
+ssh -i "your-key.pem" ec2-user@your-ec2-public-ip
+sudo yum update -y
+sudo yum install -y git nginx python3
+sudo yum update -y  # Update the system
+sudo yum install -y git nginx nodejs
+sudo yum install git -y
+git clone https://github.com/yourusername/your-repository.git
+cd your-repository
+npm install
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+sudo nano /etc/nginx/nginx.conf
+server {
+    listen 80;
+    server_name your-ec2-public-ip;
+
+    location / {
+        proxy_pass http://localhost:3000;  # Assuming your Node app runs on port 3000
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+sudo systemctl restart nginx
+sudo systemctl enable nginx
+
